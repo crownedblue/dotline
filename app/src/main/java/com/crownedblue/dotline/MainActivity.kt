@@ -3,6 +3,12 @@ package com.crownedblue.dotline
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.LinearGradient
+import android.graphics.Shader
+import android.view.View
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
@@ -18,7 +24,6 @@ class MainActivity : Activity() {
 
     private data class AppRow(val name: EditText, val color: EditText, val container: LinearLayout)
 
-    private val swatches = listOf("#7C9CFF","#FF7E9D","#FFC857","#56D6B2","#C69CFF","#FF9466","#6ECBFF","#FFFFFF","#FF5252","#40C4FF","#B2FF59","#FFD740")
     private val rows = mutableListOf<AppRow>()
 
     private fun addAppRow(holder: LinearLayout, appName: String = "", hex: String = "#7C9CFF") {
@@ -26,17 +31,126 @@ class MainActivity : Activity() {
         val name=edit("App name (e.g. WhatsApp)",appName)
         val line=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=android.view.Gravity.CENTER_VERTICAL }
         val color=edit("#RRGGBB",hex).apply { layoutParams=LinearLayout.LayoutParams(0,dp(48),1f) }
-        val pick=button("Choose colour") {
-            val labels=swatches.map { it }
-            AlertDialog.Builder(this).setTitle("Choose dot colour").setItems(labels.toTypedArray()) { _, which -> color.setText(swatches[which]) }.setNegativeButton("Cancel",null).show()
-        }
+        val pick=button("Pick custom colour") { showColorPicker(color) }
         val remove=button("Remove") { holder.removeView(wrap); rows.removeAll { it.container===wrap } }
         line.addView(color); line.addView(pick); line.addView(remove)
         wrap.addView(name); wrap.addView(line); holder.addView(wrap)
         rows.add(AppRow(name,color,wrap))
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
+
+    private fun showColorPicker(target: EditText) {
+        val initial = try { Color.parseColor(target.text.toString().trim()) } catch (_: Exception) { 0xff7c9cff.toInt() }
+        val hsv = FloatArray(3)
+        Color.colorToHSV(initial, hsv)
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(12), dp(20), dp(8))
+        }
+        val preview = View(this).apply {
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(initial); cornerRadius = dp(10).toFloat()
+                setStroke(dp(1), 0xff777777.toInt())
+            }
+            layoutParams = LinearLayout.LayoutParams(-1, dp(42)).apply { bottomMargin = dp(12) }
+        }
+        content.addView(preview)
+        val picker = SaturationValuePicker(this, hsv[0], hsv[1], hsv[2]) { s, v ->
+            hsv[1] = s; hsv[2] = v
+            val selected = Color.HSVToColor(hsv)
+            preview.background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(selected); cornerRadius = dp(10).toFloat()
+                setStroke(dp(1), 0xff777777.toInt())
+            }
+            hex.setText(String.format("#%06X", 0xFFFFFF and selected))
+        }
+        content.addView(picker, LinearLayout.LayoutParams(-1, dp(190)))
+        content.addView(label("Hue"))
+        val hue = SeekBar(this).apply { max = 360; progress = hsv[0].toInt() }
+        content.addView(hue)
+        val hex = edit("Hex colour", String.format("#%06X", 0xFFFFFF and initial))
+        hex.setSingleLine()
+        content.addView(hex)
+        hue.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(bar: SeekBar?, value: Int, fromUser: Boolean) {
+                if (!fromUser) return
+                hsv[0] = value.toFloat()
+                picker.setHue(hsv[0])
+                val selected = Color.HSVToColor(hsv)
+                preview.background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(selected); cornerRadius = dp(10).toFloat()
+                    setStroke(dp(1), 0xff777777.toInt())
+                }
+                hex.setText(String.format("#%06X", 0xFFFFFF and selected))
+            }
+            override fun onStartTrackingTouch(bar: SeekBar?) {}
+            override fun onStopTrackingTouch(bar: SeekBar?) {}
+        })
+        hex.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) try {
+                val parsed = Color.parseColor(hex.text.toString().trim())
+                Color.colorToHSV(parsed, hsv)
+                hue.progress = hsv[0].toInt()
+                picker.setSelection(hsv[1], hsv[2])
+                preview.background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(parsed); cornerRadius = dp(10).toFloat()
+                    setStroke(dp(1), 0xff777777.toInt())
+                }
+            } catch (_: Exception) { }
+        }
+        AlertDialog.Builder(this).setTitle("Custom dot colour")
+            .setView(content)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Use colour") { _, _ ->
+                try { Color.parseColor(hex.text.toString().trim()); target.setText(hex.text.toString().trim()) }
+                catch (_: Exception) { Toast.makeText(this, "Invalid hex colour", Toast.LENGTH_SHORT).show() }
+            }.show()
+    }
+
+    private inner class SaturationValuePicker(
+        context: android.content.Context,
+        private var hue: Float,
+        private var saturation: Float,
+        private var value: Float,
+        private val changed: (Float, Float) -> Unit
+    ) : View(context) {
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val white = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val black = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val selector = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE; strokeWidth = dp(2).toFloat(); color = Color.WHITE
+        }
+        private val bounds = RectF()
+        fun setHue(h: Float) { hue = h; invalidate() }
+        fun setSelection(s: Float, v: Float) { saturation = s; value = v; invalidate() }
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            bounds.set(0f, 0f, width.toFloat(), height.toFloat())
+            paint.shader = null; paint.color = Color.HSVToColor(floatArrayOf(hue, 1f, 1f))
+            canvas.drawRoundRect(bounds, dp(8).toFloat(), dp(8).toFloat(), paint)
+            white.shader = LinearGradient(0f, 0f, width.toFloat(), 0f, Color.WHITE, 0x00FFFFFF, Shader.TileMode.CLAMP)
+            canvas.drawRoundRect(bounds, dp(8).toFloat(), dp(8).toFloat(), white)
+            black.shader = LinearGradient(0f, 0f, 0f, height.toFloat(), 0x00000000, Color.BLACK, Shader.TileMode.CLAMP)
+            canvas.drawRoundRect(bounds, dp(8).toFloat(), dp(8).toFloat(), black)
+            white.shader = null; black.shader = null
+            val x = saturation * width
+            val y = (1f - value) * height
+            canvas.drawCircle(x, y, dp(9).toFloat(), selector)
+            selector.color = Color.BLACK
+            canvas.drawCircle(x, y, dp(11).toFloat(), selector)
+            selector.color = Color.WHITE
+        }
+        override fun onTouchEvent(event: android.view.MotionEvent): Boolean {
+            if (event.action == android.view.MotionEvent.ACTION_DOWN || event.action == android.view.MotionEvent.ACTION_MOVE || event.action == android.view.MotionEvent.ACTION_UP) {
+                saturation = (event.x / width.coerceAtLeast(1)).coerceIn(0f, 1f)
+                value = (1f - event.y / height.coerceAtLeast(1)).coerceIn(0f, 1f)
+                changed(saturation, value); invalidate()
+                return true
+            }
+            return true
+        }
+    }
+\n    override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor=0xff101014.toInt(); window.navigationBarColor=0xff101014.toInt()
         val root=LinearLayout(this).apply { orientation=1; setPadding(dp(20),dp(18),dp(20),dp(24)); setBackgroundColor(0xff101014.toInt()) }
