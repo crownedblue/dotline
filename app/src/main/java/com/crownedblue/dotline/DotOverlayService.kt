@@ -12,6 +12,8 @@ class DotOverlayService:Service(){
  private var panel:DotView?=null
  private lateinit var lp:WindowManager.LayoutParams
  private var downX=0f;private var downY=0f;private var startX=0;private var startY=0
+ private fun portrait():Boolean = resources.configuration.orientation==Configuration.ORIENTATION_PORTRAIT
+ private fun positionKeys():Pair<String,String> = if(portrait()) Pair("xPortrait","yPortrait") else Pair("xLandscape","yLandscape")
  private val receiver=object:BroadcastReceiver(){override fun onReceive(c:Context?,i:Intent?){panel?.invalidate();resizeForCurrentOrientation(false)}}
  override fun onCreate(){
   super.onCreate();wm=getSystemService(WINDOW_SERVICE) as WindowManager
@@ -20,13 +22,14 @@ class DotOverlayService:Service(){
   val sw=resources.displayMetrics.widthPixels
   val width=(p.getInt("barWidth",180)*d).toInt().coerceAtMost((sw-16*d).toInt()).coerceAtLeast((40*d).toInt())
   val height=(p.getInt("barHeight",30)*d).toInt()
-  lp=WindowManager.LayoutParams(width,height,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.TOP or Gravity.START;x=(p.getInt("x",120)*d).toInt();y=(p.getInt("y",4)*d).toInt()}
+  val keys=positionKeys()
+  lp=WindowManager.LayoutParams(width,height,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.TOP or Gravity.START;x=(p.getInt(keys.first,p.getInt("x",120))*d).toInt();y=(p.getInt(keys.second,p.getInt("y",4))*d).toInt()}
   panel=DotView(this).apply{setBackgroundColor(Color.TRANSPARENT);setLayerType(View.LAYER_TYPE_SOFTWARE,null)}
   panel!!.setOnTouchListener{_,e->
    when(e.action){
     MotionEvent.ACTION_DOWN->{downX=e.rawX;downY=e.rawY;startX=lp.x;startY=lp.y;true}
     MotionEvent.ACTION_MOVE->{val d=resources.displayMetrics.density;lp.x=(startX+(e.rawX-downX)).toInt().coerceIn(0,(resources.displayMetrics.widthPixels-panel!!.width).coerceAtLeast(0));lp.y=(startY+(e.rawY-downY)).toInt().coerceIn(0,(resources.displayMetrics.heightPixels-panel!!.height).coerceAtLeast(0));try{wm.updateViewLayout(panel,lp)}catch(_:Exception){};true}
-    MotionEvent.ACTION_UP->{val d=resources.displayMetrics.density;getSharedPreferences("dotline",MODE_PRIVATE).edit().putInt("x",(lp.x/d).toInt()).putInt("y",(lp.y/d).toInt()).apply();true}
+    MotionEvent.ACTION_UP->{val d=resources.displayMetrics.density;val keys=positionKeys();getSharedPreferences("dotline",MODE_PRIVATE).edit().putInt(keys.first,(lp.x/d).toInt()).putInt(keys.second,(lp.y/d).toInt()).apply();true}
     else->true
    }
   }
@@ -35,8 +38,12 @@ class DotOverlayService:Service(){
  private fun resizeForCurrentOrientation(preserveFraction:Boolean){
   if(panel==null)return
   val prefs=getSharedPreferences("dotline",MODE_PRIVATE);val d=resources.displayMetrics.density;val sw=resources.displayMetrics.widthPixels;val sh=resources.displayMetrics.heightPixels
-  val wanted=(prefs.getInt("barWidth",180)*d).toInt();lp.width=wanted.coerceAtMost((sw-16*d).toInt()).coerceAtLeast((40*d).toInt());lp.height=(prefs.getInt("barHeight",30)*d).toInt()
-  lp.x=lp.x.coerceIn(0,(sw-lp.width).coerceAtLeast(0));lp.y=lp.y.coerceIn(0,(sh-lp.height).coerceAtLeast(0))
+  val keys=positionKeys()
+  val wanted=(prefs.getInt("barWidth",180)*d).toInt()
+  lp.width=wanted.coerceAtMost((sw-16*d).toInt()).coerceAtLeast((40*d).toInt())
+  lp.height=(prefs.getInt("barHeight",30)*d).toInt()
+  lp.x=(prefs.getInt(keys.first,prefs.getInt("x",120))*d).toInt().coerceIn(0,(sw-lp.width).coerceAtLeast(0))
+  lp.y=(prefs.getInt(keys.second,prefs.getInt("y",4))*d).toInt().coerceIn(0,(sh-lp.height).coerceAtLeast(0))
   try{wm.updateViewLayout(panel,lp)}catch(_:Exception){}
  }
  override fun onConfigurationChanged(newConfig:Configuration){super.onConfigurationChanged(newConfig);resizeForCurrentOrientation(true)}
