@@ -61,7 +61,7 @@ class DotOverlayService:Service(){
    val apps=all.filter{!prefs.getBoolean("selectionConfigured",false)||selected.contains(it)}.take(prefs.getInt("maxDots",8).coerceIn(1,30));if(apps.isEmpty())return
    val dot=prefs.getInt("dotSize",8).coerceIn(3,28)*density;val gap=max(dot*1.5f,8f*density);val total=apps.size*dot+max(0,apps.size-1)*gap;var x=(width-total)/2f+dot/2f;val y=height/2f;val a=prefs.getInt("dotOpacity",100).coerceIn(0,100)*255/100
    val effect=prefs.getString("effect","clean")
-   apps.forEach{app->val color=try{prefs.getString("app_"+app,null)?.let{Color.parseColor(it)}?:palette(app)}catch(_:Exception){palette(app)};paint.style=Paint.Style.FILL;paint.color=Color.argb(a,Color.red(color),Color.green(color),Color.blue(color))
+   apps.forEach{app->val color=try{prefs.getString("appColor_"+app,null)?.let{Color.parseColor(it)}?:palette(app)}catch(_:Exception){palette(app)};paint.style=Paint.Style.FILL;paint.color=Color.argb(a,Color.red(color),Color.green(color),Color.blue(color))
     when (effect) {
      "glow" -> {
       paint.setShadowLayer(8f*density,0f,0f,Color.argb(a,Color.red(color),Color.green(color),Color.blue(color)))
