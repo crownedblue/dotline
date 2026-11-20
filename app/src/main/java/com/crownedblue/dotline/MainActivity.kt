@@ -55,7 +55,7 @@ class MainActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(-1, dp(42)).apply { bottomMargin = dp(12) }
         }
         content.addView(preview)
-        val picker = SaturationValuePicker(this, hsv[0], hsv[1], hsv[2]) { s, v ->
+        val hex = edit("Hex colour", String.format("#%06X", 0xFFFFFF and initial))\n        hex.setSingleLine()\n        val picker = SaturationValuePicker(this, hsv[0], hsv[1], hsv[2]) { s, v ->
             hsv[1] = s; hsv[2] = v
             val selected = Color.HSVToColor(hsv)
             preview.background = android.graphics.drawable.GradientDrawable().apply {
