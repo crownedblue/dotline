@@ -55,7 +55,9 @@ class MainActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(-1, dp(42)).apply { bottomMargin = dp(12) }
         }
         content.addView(preview)
-        val hex = edit("Hex colour", String.format("#%06X", 0xFFFFFF and initial))\n        hex.setSingleLine()\n        val picker = SaturationValuePicker(this, hsv[0], hsv[1], hsv[2]) { s, v ->
+        val hex = edit("Hex colour", String.format("#%06X", 0xFFFFFF and initial))
+        hex.setSingleLine()
+        val picker = SaturationValuePicker(this, hsv[0], hsv[1], hsv[2]) { s, v ->
             hsv[1] = s; hsv[2] = v
             val selected = Color.HSVToColor(hsv)
             preview.background = android.graphics.drawable.GradientDrawable().apply {
@@ -68,8 +70,6 @@ class MainActivity : Activity() {
         content.addView(label("Hue"))
         val hue = SeekBar(this).apply { max = 360; progress = hsv[0].toInt() }
         content.addView(hue)
-        val hex = edit("Hex colour", String.format("#%06X", 0xFFFFFF and initial))
-        hex.setSingleLine()
         content.addView(hex)
         hue.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(bar: SeekBar?, value: Int, fromUser: Boolean) {
@@ -150,7 +150,8 @@ class MainActivity : Activity() {
             return true
         }
     }
-\n    override fun onCreate(savedInstanceState: Bundle?) {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor=0xff101014.toInt(); window.navigationBarColor=0xff101014.toInt()
         val root=LinearLayout(this).apply { orientation=1; setPadding(dp(20),dp(18),dp(20),dp(24)); setBackgroundColor(0xff101014.toInt()) }
