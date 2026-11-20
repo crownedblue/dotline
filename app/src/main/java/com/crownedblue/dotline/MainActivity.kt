@@ -22,8 +22,6 @@ class MainActivity : Activity() {
         root.addView(label("DOTLINE — Notification dots"))
         root.addView(button("Grant display-over-apps permission") { startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:"+packageName))) })
         root.addView(button("Enable notification access") { startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")) })
-        root.addView(button("Enable hide-on-shade helper") { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) })
-        root.addView(label("Enable Dotline Shade Helper in Accessibility settings to hide dots while the notification shade is open."))
         root.addView(label("Bar colour (#RRGGBB or #AARRGGBB)"))
         val color=edit("e.g. #00000000",prefs.getString("barColor","#00000000")!!); root.addView(color)
         fun addSeek(title:String,key:String,def:Int) {
@@ -63,7 +61,7 @@ class MainActivity : Activity() {
             sendBroadcast(Intent(DotOverlayService.ACTION_REFRESH).setPackage(packageName))
             Toast.makeText(this,"Saved. Restart Dotline if dimensions changed.",Toast.LENGTH_SHORT).show()
         })
-        root.addView(button("Start floating dots") { if(Settings.canDrawOverlays(this)) { val i=Intent(this,DotOverlayService::class.java); if(android.os.Build.VERSION.SDK_INT>=26) startForegroundService(i) else startService(i) } else Toast.makeText(this,"Grant overlay permission first",Toast.LENGTH_LONG).show() })
+        root.addView(button("Start floating dots") { if(Settings.canDrawOverlays(this)) { val i=Intent(this,DotOverlayService::class.java); startService(i) } else Toast.makeText(this,"Grant overlay permission first",Toast.LENGTH_LONG).show() })
         root.addView(button("Stop floating dots") { stopService(Intent(this,DotOverlayService::class.java)) })
         setContentView(scroll)
     }
